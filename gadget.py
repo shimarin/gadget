@@ -179,6 +179,26 @@ class LauncherWindow(Gtk.ApplicationWindow):
         btn_box.append(self._start_btn)
         btn_box.append(self._stop_btn)
         btn_box.append(log_btn)
+
+        keys = self._config.get("keyring", [])
+        if keys:
+            menu = Gio.Menu()
+            for kr in keys:
+                key_name = kr["key"]
+                label = f"「{key_name}」を再入力"
+                action_name = f"rekey_{key_name}"
+                menu.append(label, f"win.{action_name}")
+                action = Gio.SimpleAction.new(action_name, None)
+                action.connect(
+                    "activate",
+                    lambda _a, _p, k=key_name, d=kr.get("desc", f"キー '{key_name}' のパスワード"):
+                        self._reenter_key(k, d),
+                )
+                self.add_action(action)
+
+            menu_btn = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu)
+            btn_box.append(menu_btn)
+
         box.append(btn_box)
 
         self.set_child(box)
@@ -208,6 +228,32 @@ class LauncherWindow(Gtk.ApplicationWindow):
             dlg.present()
         else:
             self._check_keys(keys, index + 1)
+
+    def _reenter_key(self, key_name: str, desc: str):
+        dlg = PasswordDialog(
+            self, key_name, desc,
+            lambda pw: self._update_key(key_name, pw),
+        )
+        dlg.present()
+
+    def _update_key(self, key_name: str, password: str):
+        serial = keyutils.request_key(key_name.encode(), keyutils.KEY_SPEC_USER_KEYRING)
+        try:
+            if serial is not None:
+                subprocess.run(
+                    ["keyctl", "update", str(serial), password],
+                    check=True, capture_output=True,
+                )
+            else:
+                subprocess.run(
+                    ["keyctl", "padd", "user", key_name, "@u"],
+                    input=password.encode(),
+                    check=True, capture_output=True,
+                )
+        except subprocess.CalledProcessError as e:
+            self._append_log(f"[gadget] keyctl エラー: {e.stderr.decode()}\n")
+            return
+        self._append_log(f"[gadget] キー '{key_name}' を更新しました\n")
 
     def _register_key(self, key_name: str, password: str, keys: list, next_index: int):
         try:
