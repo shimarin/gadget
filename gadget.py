@@ -105,14 +105,18 @@ class LogWindow(Gtk.Window):
         self._scroll.set_hexpand(True)
 
         buffer.connect("changed", self._on_changed)
-        self.connect("map", self._scroll_to_bottom)
+        self.connect("map", self._on_map)
 
         self.set_child(self._scroll)
         self.set_default_size(720, 420)
 
+    def _on_map(self, _):
+        GLib.idle_add(self._scroll_to_bottom)
+
     def _scroll_to_bottom(self, _=None):
         adj = self._scroll.get_vadjustment()
         adj.set_value(adj.get_upper() - adj.get_page_size())
+        return False
 
     def _on_changed(self, _buf):
         if not self.get_visible():
