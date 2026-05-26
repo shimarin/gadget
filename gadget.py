@@ -143,6 +143,14 @@ class LauncherWindow(Gtk.ApplicationWindow):
         self._build_ui()
 
     def _build_ui(self):
+        icon_path = self._config.get("icon")
+        if icon_path:
+            header = Gtk.HeaderBar()
+            img = Gtk.Image.new_from_file(str(self._work_dir / icon_path))
+            img.set_pixel_size(24)
+            header.pack_start(img)
+            self.set_titlebar(header)
+
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         box.set_margin_top(16)
         box.set_margin_bottom(16)
@@ -409,6 +417,38 @@ class GadgetApp(Gtk.Application):
         win.present()
 
 
+def cmd_install(work_dir: Path, config: dict) -> None:
+    name = config.get("name", work_dir.name)
+    comment = config.get("comment", "")
+    icon_rel = config.get("icon")
+    app_id = _make_app_id(work_dir)
+    gadget_bin = Path(sys.argv[0]).resolve()
+    desktop_dir = Path.home() / ".local/share/applications"
+    desktop_dir.mkdir(parents=True, exist_ok=True)
+    desktop_path = desktop_dir / f"{work_dir.name}.desktop"
+
+    lines = [
+        "[Desktop Entry]",
+        "Type=Application",
+        f"Name={name}",
+    ]
+    if comment:
+        lines.append(f"Comment={comment}")
+    lines += [
+        f"Exec={gadget_bin} {work_dir}",
+        "Terminal=false",
+    ]
+    if icon_rel:
+        lines.append(f"Icon={work_dir / icon_rel}")
+    lines += [
+        f"StartupWMClass={app_id}",
+        "Categories=AudioVideo;",
+    ]
+
+    desktop_path.write_text("\n".join(lines) + "\n")
+    print(f"インストール完了: {desktop_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="gadget — GTK4 process launcher",
@@ -416,9 +456,29 @@ def main():
         epilog="<dir>/gadget.toml で起動コマンド・キーリング・URLを設定します。",
     )
     parser.add_argument("dir", help="ワーキングディレクトリ (gadget.toml が必要)")
+    parser.add_argument("--install", action="store_true",
+                        help=".desktop ファイルを生成して ~/.local/share/applications/ に配置する")
     args = parser.parse_args()
 
-    app = GadgetApp(Path(args.dir).resolve())
+    work_dir = Path(args.dir).resolve()
+
+    if args.install:
+        if not work_dir.is_dir():
+            print(f"エラー: '{args.dir}' はディレクトリではありません", file=sys.stderr)
+            sys.exit(1)
+        toml_path = work_dir / LAUNCHER_TOML
+        if not toml_path.exists():
+            print(f"エラー: {toml_path} が見つかりません", file=sys.stderr)
+            sys.exit(1)
+        try:
+            config = load_config(work_dir)
+        except tomllib.TOMLDecodeError as e:
+            print(f"エラー: {toml_path} の解析に失敗しました:\n  {e}", file=sys.stderr)
+            sys.exit(1)
+        cmd_install(work_dir, config)
+        return
+
+    app = GadgetApp(work_dir)
     sys.exit(app.run([sys.argv[0]]))  # GTK に余分な引数を渡さない
 
 

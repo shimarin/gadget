@@ -59,31 +59,56 @@ exec = ["python", "-u", "main.py"]  # 配列（推奨）
 markup = 'ポート <b>8742</b> / <a href="http://localhost:8742/">Ticker</a> · <a href="http://localhost:8743/">Admin</a>'
 ```
 
-## .desktop ファイル
+## .desktop ファイルのインストール
 
-`~/.local/share/applications/` に配置することでアプリケーションランチャーから起動できる。
-アイコンは SVG をプロジェクトディレクトリに置いて絶対パスで参照する。
+`--install` オプションで `~/.local/share/applications/<dir>.desktop` を自動生成する。
 
-```ini
-[Desktop Entry]
-Type=Application
-Name=My Gadget
-Comment=説明文
-Exec=/home/shimarin/.local/bin/gadget /home/shimarin/projects/my-gadget
-Terminal=false
-Icon=/home/shimarin/projects/my-gadget/icon.svg
-StartupWMClass=com.walbrix.gadget.my_gadget
-Categories=AudioVideo;
+```bash
+gadget --install ~/projects/my-gadget
 ```
 
-`StartupWMClass` はデスクトップ環境が実行中ウィンドウと `.desktop` ファイルを紐付けるためのキーで、
-タスクバーや起動中アイコンの表示に使われる。gadget はディレクトリ名の英数字以外を `_` に置換した値を
-`application_id` として使うため、`com.walbrix.gadget.<sanitized_dir_name>` を指定する。
+`gadget.toml` の `name`・`icon`・`comment` から内容を組み立て、`StartupWMClass` も自動設定されるので
+手書きは不要。再実行で上書き更新できる。
 
-例: ディレクトリ名 `my-gadget` → `StartupWMClass=com.walbrix.gadget.my_gadget`
+### `comment` フィールド（任意）
+
+```toml
+comment = "Description shown in app launcher"
+```
 
 ## 新しい小物の追加手順
 
 1. 小物のプロジェクトディレクトリに `gadget.toml` を作成
 2. SVG アイコンを作成（任意）
-3. `~/.local/share/applications/<name>.desktop` を作成
+3. `gadget --install <dir>` を実行
+
+## エージェント向け: ガジェット化の手順
+
+AIエージェントがプロジェクトをガジェット化する際の手順。
+
+### 1. ソースコードを読んで以下を把握する
+
+- **起動コマンド**: メインスクリプトのファイル名とインタプリタ（`python`/`python3` など）。
+  標準出力をリアルタイムにキャプチャするため `-u` フラグを付ける。
+- **キーリングキー名**: `keyutils.request_key()`・`keyctl` の呼び出し箇所を探し、
+  引数として渡されているキー名の文字列リテラルをすべて列挙する。
+- **URL/ポート**: HTTPサーバーや WebSocket サーバーが使うポート番号。
+
+### 2. `gadget.toml` を作成する
+
+上記セクションの書式に従って `<dir>/gadget.toml` を作成する。
+
+### 3. SVGアイコンを作成する（任意）
+
+- プログラムの用途や配色から連想できる図案があれば `<dir>/icon.svg` として作成し、
+  `gadget.toml` に `icon = "icon.svg"` を追記する。
+- 図案化が難しい、またはアイコン制作能力がない場合はアイコンなしで進め、
+  その旨をユーザーに伝える。
+
+### 4. `.desktop` ファイルを登録する
+
+```bash
+$HOME/.local/bin/gadget --install <dir>
+```
+
+`~/.local/bin` が PATH に入っていない環境ではフルパスで呼ぶ。
