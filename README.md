@@ -76,6 +76,15 @@ gadget --install ~/projects/my-gadget
 comment = "Description shown in app launcher"
 ```
 
+### `categories` フィールド（任意）
+
+[freedesktop.org の仕様](https://specifications.freedesktop.org/menu-spec/latest/category-registry.html)
+に基づくカテゴリ文字列。省略時は `AudioVideo`。
+
+```toml
+categories = "AudioVideo;Video;"
+```
+
 ## 新しい小物の追加手順
 
 1. 小物のプロジェクトディレクトリに `gadget.toml` を作成

@@ -440,9 +440,12 @@ def cmd_install(work_dir: Path, config: dict) -> None:
     ]
     if icon_rel:
         lines.append(f"Icon={work_dir / icon_rel}")
+    categories = config.get("categories", "AudioVideo")
+    if not categories.endswith(";"):
+        categories += ";"
     lines += [
         f"StartupWMClass={app_id}",
-        "Categories=AudioVideo;",
+        f"Categories={categories}",
     ]
 
     desktop_path.write_text("\n".join(lines) + "\n")
